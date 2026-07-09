@@ -16,6 +16,7 @@ import { cn } from '../lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useCourseDetail } from '../hooks/useCourseDetail';
 import { ApiLesson, enrollInCourse } from '../lib/api';
+import { CourseFeedbackForm } from './CourseFeedbackForm';
 
 // ============================================================================
 // HOOKS
@@ -369,6 +370,14 @@ export default function CourseDetail() {
             </button>
           </div>
         )}
+
+        {/* Feedback */}
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            Your Feedback
+          </h2>
+          <CourseFeedbackForm courseId={course.id} />
+        </div>
       </div>
     </div>
   );
