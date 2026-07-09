@@ -5,12 +5,14 @@ import { ArrowLeft, HelpCircle, Clock, Repeat, Target, Loader2 } from 'lucide-re
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { useQuizDetail } from '../hooks/useQuizDetail';
+import { useQuizAttempts } from '../hooks/useQuizAttempts';
 
 export default function QuizDetail() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { quiz, isLoading, error } = useQuizDetail(quizId);
+  const { attempts, isLoading: isAttemptsLoading, error: attemptsError } = useQuizAttempts(quizId);
 
   const [isStarting, setIsStarting] = useState(false);
 
@@ -60,7 +62,65 @@ export default function QuizDetail() {
                 </p>
               )}
 
-              <div className="flex flex-wrap gap-5 text-sm text-gray-500 dark:text-gray-400 pt-2">
+              <div className="space-y-6">
+                <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 p-5">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Your attempts</h2>
+                  {isAttemptsLoading ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading attempts…</p>
+                  ) : attemptsError ? (
+                    <p className="text-sm text-red-500 dark:text-red-400">{attemptsError}</p>
+                  ) : attempts.length > 0 ? (
+                    <div className="space-y-3">
+                      {attempts.map((attempt) => (
+                        <div
+                          key={attempt.id}
+                          className="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
+                        >
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                Attempt {attempt.attempt_number}
+                                {attempt.submitted_at ? ` · ${new Date(attempt.submitted_at).toLocaleString()}` : ' · In progress'}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {attempt.score}/{attempt.max_score} points · {attempt.percentage}%
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <span className={cn(
+                                'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
+                                attempt.is_passed === true
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200'
+                                  : attempt.is_passed === false
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200'
+                                  : 'bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-gray-300'
+                              )}>
+                                {attempt.is_passed === true
+                                  ? 'Passed'
+                                  : attempt.is_passed === false
+                                  ? 'Failed'
+                                  : 'Pending review'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/quizzes/${quizId}/attempt/${attempt.id}`)}
+                                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors"
+                              >
+                                Review
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">You have not attempted this quiz yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-200 dark:border-slate-700">
                 <span className="flex items-center gap-1.5">
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                   {sortedQuestions.length} questions
@@ -84,7 +144,6 @@ export default function QuizDetail() {
                   </span>
                 )}
               </div>
-            </div>
 
             <div className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-200 dark:border-slate-700">
               <button

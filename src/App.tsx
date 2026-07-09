@@ -38,7 +38,7 @@ export function App() {
                   <Route path="courses/:moduleId/:courseId" element={<CourseDetail />} />
                   <Route path="quizzes" element={<Quizzes />} />
                   <Route path="quizzes/:quizId" element={<QuizDetail />} />
-                  <Route path="quizzes/:quizId/attempt" element={<QuizAttempt />} />
+                  <Route path="quizzes/:quizId/attempt/:attemptId?" element={<QuizAttempt />} />
                   <Route
                     path="courses/:courseId/lessons/:lessonId"
                     element={<LessonPlayer />}

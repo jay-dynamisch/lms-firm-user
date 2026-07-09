@@ -325,6 +325,43 @@ export async function fetchQuizDetail(quizId: string, token: string): Promise<Ap
   return (body?.data ?? body) as ApiQuizDetail;
 }
 
+export interface ApiPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface ApiQuizAttemptsResponse {
+  data: ApiQuizAttempt[];
+  pagination: ApiPagination;
+}
+
+export async function fetchQuizAttempts(
+  quizId: string,
+  userId: string,
+  page = 1,
+  limit = 20,
+  token: string
+): Promise<ApiQuizAttemptsResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    user_id: userId,
+  });
+
+  const response = await fetch(`${API_BASE_URL}/quizzes/${quizId}/attempts?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new ApiError(body?.message || 'Failed to load quiz attempts', response.status);
+  }
+  return (body?.data ?? body) as ApiQuizAttemptsResponse;
+}
+
 export async function startQuizAttempt(
   quizId: string,
   token: string
@@ -340,6 +377,22 @@ export async function startQuizAttempt(
   const body = await parseJsonSafe(response);
   if (!response.ok) {
     throw new ApiError(body?.message || 'Failed to start attempt', response.status);
+  }
+  return (body?.data ?? body) as ApiQuizAttemptDetail;
+}
+
+export async function fetchQuizAttempt(
+  attemptId: string,
+  token: string
+): Promise<ApiQuizAttemptDetail> {
+  const response = await fetch(`${API_BASE_URL}/quizzes/attempts/${attemptId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const body = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new ApiError(body?.message || 'Failed to load quiz attempt', response.status);
   }
   return (body?.data ?? body) as ApiQuizAttemptDetail;
 }

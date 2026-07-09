@@ -9,12 +9,14 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import {
   startQuizAttempt,
+  fetchQuizAttempt,
   submitQuizAnswer,
   submitQuizAttempt,
   ApiError,
   ApiQuizAttemptDetail,
   ApiQuestion,
   ApiQuizAttempt,
+  ApiQuizAttemptAnswer,
 } from '../lib/api';
 
 type AnswerValue = { selected_options?: string[]; text_answer?: string };
@@ -28,9 +30,10 @@ function formatTime(totalSecs: number): string {
 }
 
 export default function QuizAttempt() {
-  const { quizId } = useParams<{ quizId: string }>();
+  const { quizId, attemptId } = useParams<{ quizId: string; attemptId?: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();
+  const isReviewMode = Boolean(attemptId);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +51,15 @@ export default function QuizAttempt() {
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ===== Start the attempt on mount =====
+  const mapAnswers = (answersArray: ApiQuizAttemptAnswer[] = []) =>
+    answersArray.reduce((acc, answer) => {
+      acc[answer.question_id] = {
+        selected_options: answer.selected_options ?? [],
+        text_answer: answer.text_answer ?? '',
+      };
+      return acc;
+    }, {} as Record<string, AnswerValue>);
+
   useEffect(() => {
     if (!token || !quizId) {
       setLoading(false);
@@ -59,10 +71,13 @@ export default function QuizAttempt() {
       setLoading(true);
       setError(null);
       try {
-        const data = await startQuizAttempt(quizId, token);
+        const data = attemptId
+          ? await fetchQuizAttempt(attemptId, token)
+          : await startQuizAttempt(quizId, token);
         if (cancelled) return;
         setAttempt(data);
-        if (data.quiz?.time_limit_secs) {
+        setAnswers(mapAnswers(data.answers));
+        if (!attemptId && data.quiz?.time_limit_secs) {
           setTimeLeft(data.quiz.time_limit_secs);
         }
       } catch (err) {
@@ -79,7 +94,7 @@ export default function QuizAttempt() {
     })();
 
     return () => { cancelled = true; };
-  }, [token, quizId]);
+  }, [token, quizId, attemptId]);
 
   const questions = attempt?.quiz?.questions ?? [];
   const currentQuestion = questions[currentIndex];
@@ -105,16 +120,17 @@ export default function QuizAttempt() {
 
   // ===== Save an answer (debounced per question) =====
   const persistAnswer = useCallback((questionId: string, value: AnswerValue) => {
-    if (!attempt || !token) return;
+    if (!attempt || !token || attemptId || result) return;
     setSavingQuestionId(questionId);
     submitQuizAnswer(attempt.id, { question_id: questionId, ...value }, token)
       .catch(() => {
         setError('Could not save that answer — check your connection and try again.');
       })
       .finally(() => setSavingQuestionId((id) => (id === questionId ? null : id)));
-  }, [attempt, token]);
+  }, [attempt, token, attemptId, result]);
 
   const updateAnswer = (questionId: string, value: AnswerValue) => {
+    if (attemptId || result) return;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
     clearTimeout(saveTimers.current[questionId]);
     saveTimers.current[questionId] = setTimeout(() => persistAnswer(questionId, value), 500);
@@ -179,7 +195,13 @@ export default function QuizAttempt() {
   }
 
   if (result) {
-    return <QuizResult attempt={attempt!} result={result} onDone={() => navigate('/quizzes')} />;
+    return (
+      <QuizResult
+        attempt={attempt!}
+        result={result}
+        onDone={() => navigate('/quizzes')}
+      />
+    );
   }
 
   if (!attempt || !currentQuestion) {
@@ -198,9 +220,19 @@ export default function QuizAttempt() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">{attempt.quiz.title}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Question {currentIndex + 1} of {questions.length} &middot; {answeredCount} answered
-          </p>
+          <div className="space-y-1 mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            <p>
+              Question {currentIndex + 1} of {questions.length} &middot; {answeredCount} answered
+            </p>
+            {attempt.submitted_at && (
+              <p>
+                Attempt {attempt.attempt_number} · Submitted {new Date(attempt.submitted_at).toLocaleString()}
+                {attempt.score !== undefined && attempt.max_score !== undefined && (
+                  <> · Score {attempt.score}/{attempt.max_score}</>
+                )}
+              </p>
+            )}
+          </div>
         </div>
         {timeLeft !== null && (
           <div className={cn(
@@ -250,6 +282,7 @@ export default function QuizAttempt() {
         <QuestionInput
           question={currentQuestion}
           answer={answers[currentQuestion.id]}
+          disabled={Boolean(attemptId || result)}
           onSelectSingle={(optId) => handleSelectSingle(currentQuestion, optId)}
           onToggleMulti={(optId) => handleToggleMulti(currentQuestion, optId)}
           onTextChange={(text) => handleTextChange(currentQuestion, text)}
@@ -287,31 +320,33 @@ export default function QuizAttempt() {
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-          disabled={currentIndex === 0}
-          className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-sm font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-40 transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Previous
-        </button>
+      {!isReviewMode && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0}
+            className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-sm font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-40 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Previous
+          </button>
 
-        {currentIndex < questions.length - 1 ? (
-          <button
-            onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
-            className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-semibold transition-colors"
-          >
-            Next <ChevronRight className="w-4 h-4" aria-hidden="true" />
-          </button>
-        ) : (
-          <button
-            onClick={() => setConfirmSubmit(true)}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-semibold transition-colors"
-          >
-            <Flag className="w-4 h-4" aria-hidden="true" /> Finish quiz
-          </button>
-        )}
-      </div>
+          {currentIndex < questions.length - 1 ? (
+            <button
+              onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+              className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-semibold transition-colors"
+            >
+              Next <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmSubmit(true)}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-semibold transition-colors"
+            >
+              <Flag className="w-4 h-4" aria-hidden="true" /> Finish quiz
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Submit confirmation */}
       {confirmSubmit && (
@@ -353,33 +388,54 @@ export default function QuizAttempt() {
 // ============================================================================
 
 function QuestionInput({
-  question, answer, onSelectSingle, onToggleMulti, onTextChange,
+  question, answer, disabled, onSelectSingle, onToggleMulti, onTextChange,
 }: {
   question: ApiQuestion;
   answer?: AnswerValue;
+  disabled?: boolean;
   onSelectSingle: (optionId: string) => void;
   onToggleMulti: (optionId: string) => void;
   onTextChange: (text: string) => void;
 }) {
   const selected = answer?.selected_options ?? [];
+  const reviewMode = Boolean(disabled);
 
   if (question.question_type === 'single_choice' || question.question_type === 'true_false') {
     return (
       <div className="flex flex-col gap-2">
         {(question.options ?? []).map((opt) => {
           const isSelected = selected.includes(opt.id);
+          const isCorrect = opt.is_correct === true;
+          const isWrongSelected = reviewMode && isSelected && !isCorrect;
+          const isCorrectSelected = reviewMode && isSelected && isCorrect;
           return (
             <button
               key={opt.id}
-              onClick={() => onSelectSingle(opt.id)}
+              type="button"
+              onClick={() => !disabled && onSelectSingle(opt.id)}
+              disabled={disabled}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-colors',
-                isSelected
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                  : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-slate-600'
+                reviewMode
+                  ? isCorrect
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                    : isWrongSelected
+                      ? 'border-red-300 bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                      : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
+                  : isSelected
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                    : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-slate-600'
               )}
             >
-              {isSelected ? <CheckCircle className="w-4 h-4 shrink-0" aria-hidden="true" /> : <Circle className="w-4 h-4 shrink-0" aria-hidden="true" />}
+              {isCorrectSelected ? (
+                <CheckCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              ) : isWrongSelected ? (
+                <XCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              ) : isSelected ? (
+                <CheckCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <Circle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              )}
               {opt.text}
             </button>
           );
@@ -394,15 +450,25 @@ function QuestionInput({
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Select all that apply</p>
         {(question.options ?? []).map((opt) => {
           const isSelected = selected.includes(opt.id);
+          const isCorrect = opt.is_correct === true;
+          const isWrongSelected = reviewMode && isSelected && !isCorrect;
           return (
             <button
               key={opt.id}
-              onClick={() => onToggleMulti(opt.id)}
+              type="button"
+              onClick={() => !disabled && onToggleMulti(opt.id)}
+              disabled={disabled}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-colors',
-                isSelected
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                  : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-slate-600'
+                reviewMode
+                  ? isCorrect
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                    : isWrongSelected
+                      ? 'border-red-300 bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                      : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
+                  : isSelected
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                    : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-slate-600'
               )}
             >
               {isSelected ? <CheckSquare className="w-4 h-4 shrink-0" aria-hidden="true" /> : <Square className="w-4 h-4 shrink-0" aria-hidden="true" />}
@@ -419,10 +485,16 @@ function QuestionInput({
     <div>
       <textarea
         value={answer?.text_answer ?? ''}
-        onChange={(e) => onTextChange(e.target.value)}
+        onChange={(e) => !disabled && onTextChange(e.target.value)}
         placeholder="Type your answer…"
         rows={isEssay ? 6 : 2}
-        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-transparent text-sm text-gray-800 dark:text-gray-100 outline-none focus:border-indigo-500 resize-vertical"
+        readOnly={disabled}
+        className={cn(
+          'w-full px-4 py-3 rounded-xl border text-sm outline-none resize-vertical',
+          disabled
+            ? 'border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-500 dark:text-gray-400'
+            : 'border-gray-200 dark:border-slate-700 bg-transparent text-gray-800 dark:text-gray-100 focus:border-indigo-500',
+        )}
       />
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
         <HelpCircle className="w-3 h-3" aria-hidden="true" /> This question is reviewed manually — your score may take a moment to update.
