@@ -12,11 +12,11 @@ import {
   X,
   GraduationCap,
   Sun,
-  Moon,                   
+  Moon,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
-} from 'lucide-react';   
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTheme } from './ThemeProvider';
@@ -28,8 +28,8 @@ import { useAuth } from '../context/AuthContext';
 
 interface NavItem {
   icon: React.ReactNode;
-  label: string;        
-  path: string; 
+  label: string;
+  path: string;
 }
 
 // ============================================================================
@@ -100,20 +100,31 @@ interface ThemeToggleProps {
 
 const ThemeToggle: React.FC<ThemeToggleProps> = ({ theme, onToggle, compact = false }) => {
   const buttonClass = compact
-    ? 'p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+    ? 'p-2 text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400'
     : 'p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700';
 
   return (
     <button
       onClick={onToggle}
-      className={cn(buttonClass, 'rounded-md transition-colors')}
+      className={cn(buttonClass, 'rounded-md transition-colors duration-150')}
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >
-      {theme === 'dark' ? (
-        <Sun className="w-5 h-5" aria-hidden="true" />
-      ) : (
-        <Moon className="w-5 h-5" aria-hidden="true" />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={theme}
+          initial={{ opacity: 0, rotate: -90, scale: 0.7 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 90, scale: 0.7 }}
+          transition={{ duration: 0.18 }}
+          className="block"
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <Moon className="w-5 h-5" aria-hidden="true" />
+          )}
+        </motion.span>
+      </AnimatePresence>
     </button>
   );
 };
@@ -124,13 +135,26 @@ interface BrandProps {
 }
 
 const Brand: React.FC<BrandProps> = ({ size = 'md', collapsed = false }) => {
-  const iconSize = size === 'sm' ? 'w-5 h-5' : 'w-7 h-7';
-  const textSize = size === 'sm' ? 'text-base' : 'text-xl';
+  const markSize = size === 'sm' ? 'w-7 h-7' : 'w-8 h-8';
+  const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-[18px] h-[18px]';
+  const textSize = size === 'sm' ? 'text-[15px]' : 'text-[17px]';
 
   return (
-    <div className={cn('flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold', textSize)}>
-      <GraduationCap className={cn(iconSize, 'shrink-0')} aria-hidden="true" />
-      {!collapsed && <span className="truncate">Dyna Learning</span>}
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div
+        className={cn(
+          markSize,
+          'shrink-0 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700',
+          'flex items-center justify-center shadow-sm shadow-indigo-500/30'
+        )}
+      >
+        <GraduationCap className={cn(iconSize, 'text-white')} aria-hidden="true" />
+      </div>
+      {!collapsed && (
+        <span className={cn('font-bold tracking-tight text-gray-900 dark:text-white truncate', textSize)}>
+          Dyna Learning
+        </span>
+      )}
     </div>
   );
 };
@@ -151,7 +175,7 @@ const NavItemComponent: React.FC<NavItemProps> = ({ icon, label, path, onNavigat
       title={collapsed ? label : undefined}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative group',
+          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative group',
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400'
@@ -163,8 +187,8 @@ const NavItemComponent: React.FC<NavItemProps> = ({ icon, label, path, onNavigat
         <>
           {React.cloneElement(icon as React.ReactElement, {
             className: cn(
-              'w-5 h-5 shrink-0',
-              isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'
+              'w-5 h-5 shrink-0 transition-transform duration-150',
+              isActive ? 'text-indigo-600 dark:text-indigo-400 scale-105' : 'text-gray-400 dark:text-gray-500'
             ),
           })}
           {!collapsed && <span>{label}</span>}
@@ -201,7 +225,7 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({ onNavigate, collapsed = fal
       onClick={handleClick}
       title={collapsed ? 'Log out' : undefined}
       className={cn(
-        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full',
+        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 w-full',
         collapsed && 'justify-center px-0',
         'text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
       )}
@@ -214,6 +238,7 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({ onNavigate, collapsed = fal
 
 const SearchBar: React.FC = () => {
   const [searchValue, setSearchValue] = React.useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const handleSearch = useCallback((value: string) => {
     setSearchValue(value);
     // TODO: Implement actual search functionality
@@ -222,19 +247,26 @@ const SearchBar: React.FC = () => {
   return (
     <div className="flex-1 max-w-xl">
       <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <Search
+          className={cn(
+            'w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-150',
+            isFocused ? 'text-indigo-500' : 'text-gray-400 dark:text-gray-500'
+          )}
+        />
         <input
           type="text"
           placeholder="Search courses, skills, or topics..."
           value={searchValue}
           onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           className={cn(
             'w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900',
             'border border-gray-200 dark:border-slate-700 rounded-lg text-sm',
             'text-gray-900 dark:text-white',
             'placeholder-gray-500 dark:placeholder-gray-400',
             'focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500',
-            'dark:focus:border-indigo-500 transition-all'
+            'dark:focus:border-indigo-500 transition-all duration-150'
           )}
           aria-label="Search courses, skills, or topics"
         />
@@ -250,15 +282,16 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ theme, onThemeToggle }) => {
   return (
-    <header className="hidden md:flex h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 items-center justify-between px-8 sticky top-0 z-20 transition-colors duration-200">
+    <header className="hidden md:flex h-16 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-slate-700 items-center justify-between px-8 sticky top-0 z-20 transition-colors duration-200">
       <SearchBar />
-      <div className="flex items-center gap-4 ml-4">
+      <div className="flex items-center gap-1 ml-4">
         <ThemeToggle theme={theme} onToggle={onThemeToggle} compact />
         <button
-          className="relative p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-md"
+          className="relative p-2 text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150 rounded-md"
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" aria-hidden="true" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-white dark:ring-slate-800" />
         </button>
       </div>
     </header>
@@ -273,13 +306,13 @@ interface MobileHeaderProps {
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({ theme, onThemeToggle, onMenuToggle }) => {
   return (
-    <div className="md:hidden bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-30 transition-colors duration-200">
+    <div className="md:hidden bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-30 transition-colors duration-200">
       <Brand size="sm" />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <ThemeToggle theme={theme} onToggle={onThemeToggle} />
         <button
           onClick={onMenuToggle}
-          className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition-colors"
+          className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition-colors duration-150"
           aria-label="Open navigation menu"
           aria-expanded="false"
         >
@@ -307,22 +340,22 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 sticky top-0 h-screen transition-all duration-200',
+        'hidden md:flex flex-col bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 sticky top-0 h-screen transition-all duration-200 ease-in-out',
         collapsed ? 'w-20' : 'w-64'
       )}
     >
       <div
         className={cn(
-          'p-6 flex items-center gap-2 border-b border-gray-100 dark:border-slate-700',
-          collapsed && 'justify-center px-3'
+          'h-16 px-5 flex items-center border-b border-gray-100 dark:border-slate-700',
+          collapsed && 'justify-center px-0'
         )}
       >
         <Brand collapsed={collapsed} />
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {!collapsed && (
-          <p className="px-3 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+          <p className="px-3 pt-2 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Menu
           </p>
         )}
@@ -337,15 +370,18 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-100 dark:border-slate-700 space-y-1">
+      <div className="p-3 border-t border-gray-100 dark:border-slate-700 space-y-0.5">
         <div
           className={cn(
-            'flex items-center gap-3 px-3 py-2',
+            'flex items-center gap-3 px-3 py-2.5 mb-1',
             collapsed && 'justify-center px-0'
           )}
         >
-          <div className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-sm font-semibold text-indigo-600 dark:text-indigo-400 ring-2 ring-gray-100 dark:ring-slate-700 shrink-0">
-            {initials}
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-sm font-semibold text-white ring-2 ring-white dark:ring-slate-800 shadow-sm">
+              {initials}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-800" />
           </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">
@@ -371,7 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
         <button
           onClick={onToggleCollapsed}
           className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full mt-1',
+            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 w-full mt-1',
             collapsed && 'justify-center px-0',
             'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700/50 hover:text-gray-700 dark:hover:text-gray-300'
           )}
@@ -410,7 +446,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-gray-900/50 z-40 md:hidden"
+            className="fixed inset-0 bg-gray-900/50 backdrop-blur-[1px] z-40 md:hidden"
             aria-hidden="true"
           />
 
@@ -419,15 +455,15 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose }) => {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-            className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 z-50 md:hidden flex flex-col"
+            className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 z-50 md:hidden flex flex-col shadow-xl"
             role="navigation"
             aria-label="Mobile navigation"
           >
-            <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-slate-700">
+            <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100 dark:border-slate-700">
               <Brand size="sm" />
               <button
                 onClick={onClose}
-                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition-colors"
+                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition-colors duration-150"
                 aria-label="Close navigation menu"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
@@ -435,7 +471,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-slate-700">
-              <div className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-sm font-semibold text-indigo-600 dark:text-indigo-400 shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-sm font-semibold text-white shrink-0 shadow-sm">
                 {initials}
               </div>
               <div className="min-w-0">
@@ -455,8 +491,8 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-1">
-              <p className="px-3 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <nav className="flex-1 p-3 space-y-0.5">
+              <p className="px-3 pt-2 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                 Menu
               </p>
               {navItems.map((item) => (
@@ -470,7 +506,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose }) => {
               ))}
             </nav>
 
-            <div className="p-4 border-t border-gray-100 dark:border-slate-700">
+            <div className="p-3 border-t border-gray-100 dark:border-slate-700">
               <LogoutButton onNavigate={onClose} />
             </div>
           </motion.div>
