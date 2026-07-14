@@ -418,7 +418,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
           ) : (
             <>
               <ChevronsLeft className="w-5 h-5 shrink-0" aria-hidden="true" />
-              <span>Collapse</span>
             </>
           )}
         </button>

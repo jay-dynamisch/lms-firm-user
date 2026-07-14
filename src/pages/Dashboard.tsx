@@ -67,11 +67,6 @@ const OrgStatsCard: React.FC = () => {
           <Users className="w-5 h-5 text-indigo-500" />
           Organization
         </h2>
-        {!isLoading && !error && (
-          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            Live
-          </span>
-        )}
       </div>
 
       {isLoading && (
